@@ -1,43 +1,66 @@
-
 import os
 import random
+import numpy as np
 import torchvision.transforms.functional as TF
 from PIL import Image
 import torchvision.transforms as transforms
 from tqdm import tqdm
 
-def custom_augmentation(image_path, mask_path, output_image_dir, output_mask_dir, new_size):
+def apply_augmentations(image, mask, augmentations):
+    # Yatay çevirme
+    if 'hflip' in augmentations:
+        image = TF.hflip(image)
+        mask = TF.hflip(mask)
+    
+    # Dikey çevirme
+    if 'vflip' in augmentations:
+        image = TF.vflip(image)
+        mask = TF.vflip(mask)
+
+    # Renk jitter
+    if 'color_jitter' in augmentations:
+        brightness_factor = random.uniform(0.8, 1.2)
+        contrast_factor = random.uniform(0.8, 1.2)
+        saturation_factor = random.uniform(0.8, 1.2)
+        hue_factor = random.uniform(-0.1, 0.1)
+        image = TF.adjust_brightness(image, brightness_factor)
+        image = TF.adjust_contrast(image, contrast_factor)
+        image = TF.adjust_saturation(image, saturation_factor)
+        image = TF.adjust_hue(image, hue_factor)
+
+    # Döndürme
+    if 'rotate' in augmentations:
+        angle = random.uniform(-30, 30)
+        image = TF.rotate(image, angle)
+        mask = TF.rotate(mask, angle)
+
+    # TrivialAugmentWide
+    if 'trivial_augment_wide' in augmentations:
+        trivial_augment = transforms.TrivialAugmentWide()
+        image = trivial_augment(image)
+
+    # Noise
+    if 'noise' in augmentations:
+        noise = np.random.normal(0, 0.1, size=(image.size[1], image.size[0], 3))
+        image = np.array(image) / 255.0 + noise
+        image = np.clip(image, 0, 1)
+        image = Image.fromarray((image * 255).astype(np.uint8))
+
+    return image, mask
+
+def custom_augmentation(image_path, mask_path, output_image_dir, output_mask_dir, new_size, augmentations):
     # Görüntü ve maskeyi yükleme
     image = Image.open(image_path).convert('RGB')
     mask = Image.open(mask_path).convert('L')
 
-    # Yeni boyut
+    # Boyutlandırma
     new_size = (new_size, new_size)
-
-    # Transformlar (boyutlandırma ve augmentasyon)
     resize_transform = transforms.Resize(new_size)
     image = resize_transform(image)
     mask = resize_transform(mask)
 
-    # Rastgele yatay ve dikey olarak yansıtma
-    if random.random() > 0.5:
-        image = TF.hflip(image)
-        mask = TF.hflip(mask)
-    
-    if random.random() > 0.5:
-        image = TF.vflip(image)
-        mask = TF.vflip(mask)
-
-    # Renk jitter (rastgele renk değişiklikleri)
-    brightness_factor = random.uniform(0.8, 1.2)
-    contrast_factor = random.uniform(0.8, 1.2)
-    saturation_factor = random.uniform(0.8, 1.2)
-    hue_factor = random.uniform(-0.1, 0.1)
-
-    image = TF.adjust_brightness(image, brightness_factor)
-    image = TF.adjust_contrast(image, contrast_factor)
-    image = TF.adjust_saturation(image, saturation_factor)
-    image = TF.adjust_hue(image, hue_factor)
+    # Augmentasyonları uygulama
+    image, mask = apply_augmentations(image, mask, augmentations)
 
     # Görüntüyü ve maskeleri tensor formatına dönüştürme
     image_tensor = TF.to_tensor(image)
@@ -57,14 +80,44 @@ def custom_augmentation(image_path, mask_path, output_image_dir, output_mask_dir
     transforms.ToPILImage()(image_tensor).save(output_image_path)
     transforms.ToPILImage()(mask_tensor).save(output_mask_path)
 
-new_size = int(input("What do you want the new size to be? "))
+def get_valid_input(prompt, expected_type):
+    while True:
+        user_input = input(prompt)
+        if expected_type == int:
+            try:
+                return int(user_input)
+            except ValueError:
+                print(f"Lütfen geçerli bir {expected_type.__name__} değeri girin.")
+        elif expected_type == str:
+            if user_input.isdigit():
+                print(f"Lütfen geçerli bir {expected_type.__name__} değeri girin.")
+            else:
+                return user_input
 
-base_dir = input("Enter the base directory path of the dataset: ")
-test_dir_name = input("Enter the name of the test directory: ")
-ground_truth_dir_name = input("Enter the name of the ground truth directory: ")
+def get_augmentations():
+    augmentations = []
+    if input("Horizontal Flip (yatay çevirme) kullanılsın mı? (y/n): ").lower() == 'y':
+        augmentations.append('hflip')
+    if input("Vertical Flip (dikey çevirme) kullanılsın mı? (y/n): ").lower() == 'y':
+        augmentations.append('vflip')
+    if input("Color Jitter (renk jitter) kullanılsın mı? (y/n): ").lower() == 'y':
+        augmentations.append('color_jitter')
+    if input("Rotate (döndürme) kullanılsın mı? (y/n): ").lower() == 'y':
+        augmentations.append('rotate')
+    if input("Trivial Augment Wide kullanılsın mı? (y/n): ").lower() == 'y':
+        augmentations.append('trivial_augment_wide')
+    if input("Noise (gürültü) kullanılsın mı? (y/n): ").lower() == 'y':
+        augmentations.append('noise')
+    return augmentations
+
+new_size = get_valid_input("What do you want the new size to be? ", int)
+base_dir = get_valid_input("Enter the base directory path of the dataset: ", str)
+test_dir_name = get_valid_input("Enter the name of the test directory: ", str)
+ground_truth_dir_name = get_valid_input("Enter the name of the ground truth directory: ", str)
+augmentations = get_augmentations()
 
 while True:
-    file_name = input("Enter the directory name within test/ground_truth (or 'q' to quit): ")
+    file_name = get_valid_input("Enter the directory name within test/ground_truth (or 'q' to quit): ", str)
     
     if file_name == "q":
         break
@@ -82,4 +135,4 @@ while True:
                 mask_filename = filename.replace('.jpg', '.png').replace('.png', '_mask.png')
                 mask_path = os.path.join(mask_dir, mask_filename)
         
-                custom_augmentation(image_path, mask_path, output_image_dir, output_mask_dir, new_size=new_size)
+                custom_augmentation(image_path, mask_path, output_image_dir, output_mask_dir, new_size=new_size, augmentations=augmentations)
