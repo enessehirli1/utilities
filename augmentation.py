@@ -88,14 +88,14 @@ def custom_augmentation(image_path, mask_path=None, output_image_dir=None, outpu
         mask_tensor = TF.to_tensor(mask)
 
     # Augmentasyon isimlerini dosya adına ekleme
-    augmentations_suffix = '_'.join(applied_augmentations)
+    augmentations_suffix = '_'.join(applied_augmentations) if applied_augmentations else 'no_augmentations'
 
     # Kaydedilecek dosya yollarını oluşturma
     image_name = os.path.basename(image_path).split('.')[0]
-    output_image_path = os.path.join(output_image_dir, f'augmented_image_{image_name}.png')
+    output_image_path = os.path.join(output_image_dir, f'{image_name}_{augmentations_suffix}.png')
     if mask_path is not None:
         mask_name = os.path.basename(mask_path).split('.')[0]
-        output_mask_path = os.path.join(output_mask_dir, f'augmented_mask_{mask_name}.png')
+        output_mask_path = os.path.join(output_mask_dir, f'{mask_name}_{augmentations_suffix}.png')
 
     # Çıkış dizinlerini oluşturma
     os.makedirs(output_image_dir, exist_ok=True)
@@ -124,15 +124,15 @@ def get_valid_input(prompt, expected_type):
 def get_augmentations():
     augmentations = []
     if input("Horizontal Flip (yatay çevirme) kullanılsın mı? (y/n): ").lower() == 'y':
-        augmentations.append('hFlip')
+        augmentations.append('hflip')
     if input("Vertical Flip (dikey çevirme) kullanılsın mı? (y/n): ").lower() == 'y':
-        augmentations.append('vFlip')
+        augmentations.append('vflip')
     if input("Color Jitter (renk jitter) kullanılsın mı? (y/n): ").lower() == 'y':
-        augmentations.append('colorJitter')
+        augmentations.append('color_jitter')
     if input("Rotate (döndürme) kullanılsın mı? (y/n): ").lower() == 'y':
         augmentations.append('rotate')
     if input("Trivial Augment Wide kullanılsın mı? (y/n): ").lower() == 'y':
-        augmentations.append('triAugWide')
+        augmentations.append('trivial_augment_wide')
     if input("Noise (gürültü) kullanılsın mı? (y/n): ").lower() == 'y':
         augmentations.append('noise')
     return augmentations
