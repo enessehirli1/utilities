@@ -164,7 +164,7 @@ def start_augmentate():
 
             # Giriş dizinindeki tüm görüntü ve maskeler için işlem
             for filename in tqdm(os.listdir(input_dir), desc="Processing: "):
-                if filename.endswith('.jpg') or filename.endswith('.png'):
+                if filename.lower().endswith('.jpg') or filename.lower().endswith('.png'):
                     image_path = os.path.join(input_dir, filename)
                     if gt == 1:
                         mask_filename = filename.replace('.jpg', '.png').replace('.png', '_mask.png')
